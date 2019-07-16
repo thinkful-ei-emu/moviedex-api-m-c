@@ -1,10 +1,31 @@
+require('dotenv').config();
 const express = require('express');
 const morgan = require('morgan');
 const PORT = process.env.PORT || 8000;
+const API_TOKEN = process.env.API_TOKEN;
+const cors = require('cors');
+const helmet = require('helmet');
 
 const movieData = require('./movies-data-small.json');
 
 const app = express();
+app.use(morgan('dev'));
+app.use(cors());
+app.use(helmet());
+
+app.use(function validateBearerToken (req, res, next){
+  const authToken = req.get('Authorization') || '';
+  const [ authType, token] = authToken.split(' ');
+
+  if( authType.toLowerCase() !== 'bearer'){
+    return res.status(401).json({error: 'No Bearer Token provided'});
+  }
+
+  if (token !== API_TOKEN){
+    return res.status(401).json({error: 'Invalid Credentails'});
+  }
+  next();
+});
 
 function filterMovie(req, res) {
   let filterMovies = movieData;
@@ -21,10 +42,13 @@ function filterMovie(req, res) {
   }
 
   if(avg_vote) {
-    let avg_vote = parseFloat(avg_vote);
-    filterMovies = filterMovies.filter(movie => movie.avg_vote >= avg_vote );
+    let num_avg_vote = Number(avg_vote);
+    if(num_avg_vote){
+      filterMovies = filterMovies.filter(movie => movie.avg_vote >= num_avg_vote );
+    } else{
+      res.status(400).json({error:'Please enter a number'});
+    }
   }
-  console.log('hello');
   res.send(filterMovies);
 }
 
